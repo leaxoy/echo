@@ -14,14 +14,20 @@ type (
 		// Generator defines a function to generate an ID.
 		// Optional. Default value random.String(32).
 		Generator func() string
+
+		// GenerateFromContext defines a function to generate an ID.
+		// Diff with Generator function, user can get metadata from echo.Context,
+		// like cookie, header, params etc.
+		GenerateFromContext func(c echo.Context) string
 	}
 )
 
 var (
 	// DefaultRequestIDConfig is the default RequestID middleware config.
 	DefaultRequestIDConfig = RequestIDConfig{
-		Skipper:   DefaultSkipper,
-		Generator: generator,
+		Skipper:             DefaultSkipper,
+		Generator:           generator,
+		GenerateFromContext: generateFromContext,
 	}
 )
 
@@ -50,7 +56,11 @@ func RequestIDWithConfig(config RequestIDConfig) echo.MiddlewareFunc {
 			res := c.Response()
 			rid := req.Header.Get(echo.HeaderXRequestID)
 			if rid == "" {
-				rid = config.Generator()
+				if config.GenerateFromContext != nil {
+					rid = config.GenerateFromContext(c)
+				} else {
+					rid = config.Generator()
+				}
 			}
 			res.Header().Set(echo.HeaderXRequestID, rid)
 
@@ -61,4 +71,8 @@ func RequestIDWithConfig(config RequestIDConfig) echo.MiddlewareFunc {
 
 func generator() string {
 	return random.String(32)
+}
+
+func generateFromContext(c echo.Context) string {
+	return generator()
 }
